@@ -1,0 +1,26 @@
+[
+    {
+        "id": "1",
+        "titulo": "Desarrollador Python Senior",
+        "empresa": "Tech Solutions",
+        "descripcion": "Buscamos un desarrollador Python con experiencia en backend y bases de datos SQL. Conocimientos en trabajo en equipo y resolución de problemas son valorados.",
+        "requisitos_tecnicos": ["Python", "SQL", "Docker", "FastAPI"],
+        "requisitos_blandos": ["Trabajo en equipo", "Resolución de problemas", "Liderazgo"]
+    },
+    {
+        "id": "2",
+        "titulo": "Analista de Datos Jr.",
+        "empresa": "Data Insights Corp",
+        "descripcion": "Se requiere analista de datos con buen manejo de Excel, SQL y conocimientos básicos de estadística. La proactividad es clave.",
+        "requisitos_tecnicos": ["Excel", "SQL", "Estadística", "Python"],
+        "requisitos_blandos": ["Proactividad", "Comunicación"]
+    },
+    {
+        "id": "3",
+        "titulo": "Especialista en Marketing Digital",
+        "empresa": "Creative Ads",
+        "descripcion": "Necesitamos un especialista en SEO y Google Ads con experiencia en estrategias digitales. Capacidad de liderazgo y creatividad.",
+        "requisitos_tecnicos": ["SEO", "Google Ads", "Marketing Digital"],
+        "requisitos_blandos": ["Liderazgo", "Creatividad"]
+    }
+]

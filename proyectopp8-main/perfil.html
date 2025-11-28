@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+
+    <!-- =================================== -->
+    <!--          VISTA DE LOGIN             -->
+    <!-- =================================== -->
+    <div id="login-view" class="login-container">
+        <div class="login-box">
+            <img src="https://files.oaiusercontent.com/file-7b2b6e2e-7e2e-4e2e-8e2e-7e2e7e2e7e2e/imagen.png" alt="CogniLink Logo" class="login-logo">
+            <h2>Bienvenido a CogniLink</h2>
+            <p class="login-subtitle">Inicia sesión para acceder a tu perfil profesional.</p>
+            <form id="login-form">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="id_egresado" placeholder="ID de Egresado" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" placeholder="Contraseña" required>
+                </div>
+                <button type="submit" class="btn-login">Ingresar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- =================================== -->
+    <!--         VISTA DE PERFIL             -->
+    <!-- =================================== -->
+    <div id="profile-view" style="display: none;">
+        <div class="profile-layout">
+            <!-- Barra Lateral -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <img src="https://files.oaiusercontent.com/file-7b2b6e2e-7e2e-4e2e-8e2e-7e2e7e2e7e2e/imagen.png" alt="CogniLink Logo" class="sidebar-logo">
+                    <h3>CogniLink</h3>
+                </div>
+                <nav class="sidebar-nav">
+                    <a href="#" class="nav-item active"><i class="fas fa-user-circle"></i> Mi Perfil</a>
+                    <a href="#" class="nav-item"><i class="fas fa-briefcase"></i> Ofertas</a>
+                    <a href="#" class="nav-item"><i class="fas fa-lightbulb"></i> Cursos</a>
+                    <a href="#" id="quienes-somos-btn" class="nav-item"><i class="fas fa-info-circle"></i> Quiénes Somos</a>
+                </nav>
+                <div class="sidebar-footer">
+                    <button id="logout-btn" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
+                </div>
+            </aside>
+
+            <!-- Contenido Principal -->
+            <main class="main-content">
+                <header class="main-header">
+                    <h1>Mi Perfil Profesional</h1>
+                    <div class="user-info-header">
+                        <span>Juan Pérez</span>
+                        <img src="https://i.pravatar.cc/150?u=juanperez" alt="Avatar" class="avatar">
+                    </div>
+                </header>
+
+                <div class="content-grid">
+                    <div class="profile-card card-main">
+                        <h2><i class="fas fa-address-card"></i> Resumen Profesional</h2>
+                        <p>Ingeniero de software con 5 años de experiencia en desarrollo web, especializado en backend con Python y Django. Apasionado por crear soluciones eficientes y escalables.</p>
+                    </div>
+                    <div class="profile-card card-skills">
+                        <h2><i class="fas fa-cogs"></i> Habilidades</h2>
+                        <div class="skills-grid">
+                            <span class="skill-tag">Python</span>
+                            <span class="skill-tag">Django</span>
+                            <span class="skill-tag">FastAPI</span>
+                            <span class="skill-tag">Docker</span>
+                            <span class="skill-tag">SQL</span>
+                            <span class="skill-tag">JavaScript</span>
+                        </div>
+                    </div>
+                    <div class="profile-card card-experience">
+                        <h2><i class="fas fa-briefcase"></i> Experiencia Laboral</h2>
+                        <div class="experience-item">
+                            <h3>Desarrollador Backend Python</h3>
+                            <h4>Tech Solutions Inc. | Ene 2021 - Actualidad</h4>
+                            <p>Desarrollo y mantenimiento de APIs REST para la plataforma principal de la compañía, utilizando Django y FastAPI.</p>
+                        </div>
+                        <div class="experience-item">
+                            <h3>Desarrollador Junior</h3>
+                            <h4>Web Starters LLC | Jun 2019 - Dic 2020</h4>
+                            <p>Maquetación de sitios web y soporte a desarrolladores senior en proyectos con Wordpress y PHP.</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- =================================== -->
+    <!--       MODAL "QUIÉNES SOMOS"         -->
+    <!-- =================================== -->
+    <div id="quienes-somos-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Quiénes Somos</h2>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <b>La Historia de Origen de CogniLink: Conectando Talento con Inteligencia (UNRC - Rosario Castellanos)</b><br><br>
+                <p><strong>💡 El Desafío del Crecimiento</strong><br>
+                La Universidad Nacional Rosario Castellanos (UNRC), como institución innovadora y orientada al futuro, rápidamente se posicionó como un centro vital para la formación de profesionales especializados, en particular en áreas como la Ciencia de Datos para Negocios. Sin embargo, con un rápido crecimiento y un enfoque vanguardista, surgió un desafío: la necesidad de un sistema de vinculación laboral que estuviera a la altura de su modelo educativo.</p>
+                <p><strong>💻 El Nacimiento de la Solución Inteligente</strong><br>
+                En 2024, en el octavo semestre de la carrera de Ciencia de Datos para Negocios, Daniela Espinosa y Sofía Casas vieron la oportunidad de aplicar sus conocimientos para transformar esta deficiencia en una ventaja competitiva para su universidad y sus compañeros.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('login-form');
+            const loginView = document.getElementById('login-view');
+            const profileView = document.getElementById('profile-view');
+            const logoutBtn = document.getElementById('logout-btn');
+            const quienesSomosBtn = document.getElementById('quienes-somos-btn');
+            const modal = document.getElementById('quienes-somos-modal');
+            const closeModal = document.querySelector('.close-modal');
+
+            // --- Lógica de Login ---
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                // Aquí iría la validación real contra el backend
+                loginView.style.display = 'none';
+                profileView.style.display = 'block';
+            });
+
+            // --- Lógica de Logout ---
+            logoutBtn.addEventListener('click', function() {
+                profileView.style.display = 'none';
+                loginView.style.display = 'block';
+            });
+
+            // --- Lógica del Modal "Quiénes Somos" ---
+            quienesSomosBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                modal.style.display = 'flex';
+            });
+
+            closeModal.addEventListener('click', function() {
+                modal.style.display = 'none';
+            });
+
+            window.addEventListener('click', function(event) {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

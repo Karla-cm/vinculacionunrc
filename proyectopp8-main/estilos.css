@@ -1,0 +1,122 @@
+/* General Body Styles */
+body {
+    font-family: 'Lato', sans-serif;
+    background-color: #f0f2f5;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* Main Card for Login */
+.main-card {
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    padding: 2.5rem;
+    margin: 4rem auto;
+    max-width: 450px;
+    text-align: center;
+    border-top: 5px solid #007bff;
+}
+
+.main-card h1 {
+    color: #007bff;
+    margin-bottom: 0.5rem;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.main-card img {
+    height: 80px;
+    margin-bottom: 1.5rem;
+}
+
+/* Streamlit Input Fields */
+.stTextInput>div>div>input {
+    border-radius: 5px;
+    border: 1px solid #ced4da;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    width: 100%;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.stTextInput>div>div>input:focus {
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Streamlit Button */
+.stButton>button {
+    background-color: #007bff;
+    color: white;
+    border-radius: 5px;
+    border: none;
+    padding: 0.75rem 2rem;
+    font-weight: 600;
+    font-size: 1rem;
+    width: 100%;
+    margin-top: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.stButton>button:hover {
+    background-color: #0056b3;
+}
+
+/* Dashboard and Recommendations Page */
+.stApp {
+    padding: 2rem;
+}
+
+h1 {
+    color: #007bff;
+    font-weight: 700;
+}
+
+h3 {
+    color: #007bff;
+}
+
+/* Profile Card */
+.profile-card {
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    padding: 2rem;
+    margin-top: 2rem;
+}
+
+.profile-card img {
+    width: 60px;
+    margin-right: 1rem;
+}
+
+/* Skills */
+.skill {
+    background-color: #e9ecef;
+    color: #495057;
+    border-radius: 15px;
+    padding: 0.4rem 1rem;
+    margin: 0.2rem;
+    display: inline-block;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+/* Recommendations */
+.recommendation-card {
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+    border-left: 5px solid #007bff;
+}
+
+.recommendation-card h3 {
+    margin-top: 0;
+}

@@ -1,0 +1,32 @@
+PyPDF2
+python-docx
+# Core Framework
+Flask
+flask-cors
+
+# Data Processing
+pandas
+numpy
+
+# Frontend
+streamlit
+streamlit-folium
+
+# Machine Learning & NLP
+scikit-learn
+
+# Utilities
+requests
+python-dateutil
+
+# Dependencies (Auto-installed by the above)
+Jinja2
+MarkupSafe
+Werkzeug
+click
+itsdangerous
+packaging
+certifi
+charset-normalizer
+idna
+urllib3

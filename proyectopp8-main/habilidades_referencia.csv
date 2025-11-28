@@ -1,0 +1,9 @@
+Tipo,Habilidad,Sinonimos
+Hard,Python,"Piton, Python 3.x, programación en Python"
+Hard,SQL,"Base de datos SQL, MySQL, PostgreSQL, Transact-SQL"
+Hard,Machine Learning,"ML, Aprendizaje Automático, modelos predictivos"
+Hard,TensorFlow,"TF, Keras, TFlow"
+Soft,Comunicación,"Comunicación efectiva, Habilidades de presentación, Reporting"
+Soft,Liderazgo,"Liderar equipos, Gestión de personas"
+Soft,Trabajo en Equipo,"Colaboración, Espíritu de equipo, trabajo colaborativo"
+Soft,Autonomía,"Independencia, Iniciativa propia"

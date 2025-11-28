@@ -1,0 +1,32 @@
+[
+    {
+        "titulo_curso": "Curso de Python Avanzado",
+        "proveedor": "Coursera",
+        "habilidad": "Python"
+    },
+    {
+        "titulo_curso": "Introducción a SQL para Ciencia de Datos",
+        "proveedor": "Udemy",
+        "habilidad": "SQL"
+    },
+    {
+        "titulo_curso": "Dominando Excel para Análisis de Datos",
+        "proveedor": "LinkedIn Learning",
+        "habilidad": "Excel"
+    },
+    {
+        "titulo_curso": "Fundamentos de Estadística",
+        "proveedor": "Platzi",
+        "habilidad": "Estadística"
+    },
+    {
+        "titulo_curso": "Liderazgo y Gestión de Equipos",
+        "proveedor": "EDX",
+        "habilidad": "Liderazgo"
+    },
+    {
+        "titulo_curso": "Resolución Creativa de Problemas",
+        "proveedor": "Skillshare",
+        "habilidad": "Resolución de problemas"
+    }
+]
