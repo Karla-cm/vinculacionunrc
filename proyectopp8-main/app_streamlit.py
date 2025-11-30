@@ -1,18 +1,28 @@
 import streamlit as st
 import json
 import re
+import base64
+import os
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import pandas as pd
 import hashlib
 
+# Función para cargar imagen como base64
+def get_image_base64(image_path):
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except:
+        return None
+
 # --- CARGAR DATOS ---
-@st.cache_data
+@st.cache_data(ttl=60)  # Recargar datos cada 60 segundos
 def load_data():
     try:
         vacantes = json.load(open('vacantes.json', 'r', encoding='utf-8'))
         cursos = json.load(open('cursos.json', 'r', encoding='utf-8'))
-        egresados = pd.read_csv('egresados_data.csv')
+        egresados = pd.read_csv('egresados_data.csv', encoding='utf-8')
     except FileNotFoundError:
         st.error("Archivos no encontrados.")
         vacantes = []
@@ -48,34 +58,73 @@ if 'user_data' not in st.session_state:
     st.session_state.user_data = None
 
 # --- FUNCIONES DE NLP ---
+import unicodedata
+
+def normalizar_texto(texto):
+    """Normaliza texto removiendo acentos y convirtiendo a minúsculas."""
+    texto = texto.lower().strip()
+    # Remover acentos
+    texto = unicodedata.normalize('NFD', texto)
+    texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
+    return texto
+
 def normalizar_habilidad(habilidad):
-    """Limpia la habilidad y maneja sinónimos básicos."""
-    habilidad = habilidad.lower().strip()
-    
-    if 'estadistica' in habilidad:
-        return 'estadística'
-    if 'trabajo en equipo' in habilidad or 'equipo' in habilidad:
-        return 'trabajo en equipo'
-    if 'resolución' in habilidad and 'problemas' in habilidad:
-        return 'resolución de problemas'
-    
-    terminos_clave = ['python', 'sql', 'excel', 'javascript', 'node.js', 'google ads', 'seo', 'docker', 'liderazgo']
-    for termino in terminos_clave:
-        if termino in habilidad:
-            return termino
-            
-    return habilidad
+    """Limpia la habilidad para comparación."""
+    return normalizar_texto(habilidad)
 
 def extraer_habilidades(cv_texto, lista_habilidades_conocidas):
-    """Procesa el texto del CV y busca coincidencias."""
+    """Procesa el texto del CV y busca coincidencias con palabras clave."""
     habilidades_encontradas = set()
-    habilidades_normalizadas = [normalizar_habilidad(h) for h in lista_habilidades_conocidas]
-    cv_texto_limpio = normalizar_habilidad(cv_texto)
+    cv_texto_limpio = normalizar_texto(cv_texto)
     
-    for habilidad in habilidades_normalizadas:
-        if habilidad in cv_texto_limpio:
-            habilidades_encontradas.add(habilidad)
-            
+    # Diccionario de sinónimos - la clave es la habilidad normalizada (sin acentos)
+    sinonimos = {
+        'python': ['python', 'pandas', 'numpy', 'sklearn', 'scikit-learn', 'scikit', 'matplotlib', 
+                   'flask', 'django', 'pytorch', 'tensorflow', 'jupyter', 'streamlit'],
+        'sql': ['sql', 'postgresql', 'mysql', 'sqlite', 'consultas sql', 'oracle', 'sql server'],
+        'excel': ['excel', 'tablas dinamicas', 'power query', 'spreadsheet', 'pivot'],
+        'estadistica': ['estadistica', 'estadistico', 'estadisticos', 'analisis estadistico', 
+                        'regresion', 'probabilidad', 'inferencia', 'correlacion', 'varianza', 'r avanzado',
+                        'descriptiva', 'inferencial', 'hipotesis', 'anova', 'scipy'],
+        'docker': ['docker', 'contenedor', 'contenedores', 'container', 'kubernetes', 'k8s'],
+        'fastapi': ['fastapi', 'api rest', 'apis rest', 'rest api', 'endpoints', 'microservicios'],
+        'trabajo en equipo': ['trabajo en equipo', 'equipo', 'colaborativo', 'colaboracion', 
+                              'team', 'equipos', 'multidisciplinario', 'interdisciplinario', 'scrum', 'agil'],
+        'resolucion de problemas': ['resolucion de problemas', 'resolver problemas', 'solucion de problemas', 
+                                    'problem solving', 'troubleshooting', 'debugging', 'depuracion',
+                                    'resolucion problemas'],
+        'liderazgo': ['liderazgo', 'liderar', 'lidere', 'lider', 'gestion de equipos', 
+                      'mentoria', 'mentor', 'coordinador', 'mentore', 'capacite', 'capacitador'],
+        'proactividad': ['proactividad', 'proactivo', 'proactiva', 'iniciativa', 'autonomia', 
+                         'autonomo', 'autodidacta', 'propositivo'],
+        'comunicacion': ['comunicacion', 'comunicar', 'presentaciones', 'comunicacion efectiva', 
+                         'expositor', 'redaccion', 'documentacion', 'reportes', 'c-level'],
+        'seo': ['seo', 'optimizacion motores', 'search engine', 'posicionamiento web'],
+        'google ads': ['google ads', 'adwords', 'publicidad google', 'sem', 'ppc'],
+        'marketing digital': ['marketing digital', 'marketing online', 'estrategias digitales',
+                              'redes sociales', 'social media', 'community manager'],
+        'creatividad': ['creatividad', 'creativo', 'creativa', 'innovacion', 'innovador', 'diseno']
+    }
+    
+    # Buscar cada habilidad requerida por la vacante
+    for habilidad in lista_habilidades_conocidas:
+        hab_normalizada = normalizar_texto(habilidad)  # Sin acentos, minúsculas
+        encontrada = False
+        
+        # 1. Buscar coincidencia directa en el CV
+        if hab_normalizada in cv_texto_limpio:
+            habilidades_encontradas.add(hab_normalizada)
+            encontrada = True
+            continue
+        
+        # 2. Buscar si la habilidad tiene sinónimos definidos
+        if hab_normalizada in sinonimos:
+            for sinonimo in sinonimos[hab_normalizada]:
+                if sinonimo in cv_texto_limpio:
+                    habilidades_encontradas.add(hab_normalizada)
+                    encontrada = True
+                    break
+    
     return habilidades_encontradas
 
 def calcular_similitud_tfidf(cv_texto, vacantes):
@@ -115,30 +164,37 @@ def perform_matching(cv_texto):
     tfidf_scores = calcular_similitud_tfidf(cv_texto, VACANTES)
 
     for vacante in VACANTES:
-        req_tec = set(normalizar_habilidad(h) for h in vacante.get('requisitos_tecnicos', []))
-        req_blando = set(normalizar_habilidad(h) for h in vacante.get('requisitos_blandos', []))
+        # Crear mapeo de nombre normalizado a nombre original
+        req_originales = vacante.get('requisitos_tecnicos', []) + vacante.get('requisitos_blandos', [])
+        mapeo_nombres = {normalizar_texto(h): h for h in req_originales}
+        
+        req_tec = set(normalizar_texto(h) for h in vacante.get('requisitos_tecnicos', []))
+        req_blando = set(normalizar_texto(h) for h in vacante.get('requisitos_blandos', []))
         req_totales = req_tec.union(req_blando)
         
         habilidades_cumplidas = habilidades_cv.intersection(req_totales)
         habilidades_faltantes = req_totales - habilidades_cv
 
-        # Score final
+        # Score final basado solo en requisitos cumplidos (sin TF-IDF para simplificar)
         total_req = len(req_totales)
         score_cumplimiento = len(habilidades_cumplidas) / total_req if total_req else 0
-        score_relevancia = tfidf_scores.get(vacante.get('id', 0), 0)
-        puntaje_final = (score_cumplimiento * 0.6) + (score_relevancia * 0.4)
+        puntaje_final = score_cumplimiento * 100
+        
+        # Convertir nombres normalizados a nombres originales para mostrar
+        habilidades_cumplidas_display = [mapeo_nombres.get(h, h.title()) for h in habilidades_cumplidas]
+        habilidades_faltantes_display = [mapeo_nombres.get(h, h.title()) for h in habilidades_faltantes]
         
         # Cursos recomendados
         cursos_recomendados = [
             curso for curso in CURSOS 
-            if normalizar_habilidad(curso.get('habilidad', '')) in habilidades_faltantes
+            if normalizar_texto(curso.get('habilidad', '')) in habilidades_faltantes
         ]
 
         resultados.append({
             "vacante": vacante,
-            "puntaje_match": round(puntaje_final * 100, 2),
-            "habilidades_cumplidas": sorted(list(habilidades_cumplidas)),
-            "habilidades_faltantes": sorted(list(habilidades_faltantes)),
+            "puntaje_match": round(puntaje_final, 1),
+            "habilidades_cumplidas": sorted(habilidades_cumplidas_display),
+            "habilidades_faltantes": sorted(habilidades_faltantes_display),
             "cursos_recomendados": cursos_recomendados
         })
 
@@ -881,45 +937,45 @@ h1, h2, h3 {
 def show_header():
     # Navbar con navegación - diferente si está logueado o no
     if st.session_state.logged_in:
-        col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([2, 1, 1, 1, 1, 1, 1, 1])
+        col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
     else:
-        col1, col2, col3, col4, col5, col6 = st.columns([2, 1, 1, 1, 1, 1])
+        col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
     
     with col1:
-        st.markdown("<div style='font-size: 1.5rem; font-weight: 700; color: #60a5fa;'>CogniLink UNRC</div>", unsafe_allow_html=True)
-    
-    with col2:
-        if st.button("Inicio", use_container_width=True):
-            st.session_state.current_page = 'inicio'
-            st.rerun()
+        # Intentar cargar logo, si falla usar texto
+        try:
+            from PIL import Image
+            import os
+            logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+            if os.path.exists(logo_path):
+                img = Image.open(logo_path)
+                col_a, col_b = st.columns([0.15, 0.85])
+                with col_a:
+                    st.image(img, width=45)
+                with col_b:
+                    st.markdown("<div style='font-size: 1.3rem; font-weight: 700; color: #60a5fa; padding-top: 5px;'>CogniLink UNRC</div>", unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='font-size: 1.5rem; font-weight: 700; color: #60a5fa;'>🔗 CogniLink UNRC</div>", unsafe_allow_html=True)
+        except:
+            st.markdown("<div style='font-size: 1.5rem; font-weight: 700; color: #60a5fa;'>🔗 CogniLink UNRC</div>", unsafe_allow_html=True)
     
     if st.session_state.logged_in:
-        with col3:
-            if st.button("Nuestra Historia", use_container_width=True):
-                st.session_state.current_page = 'nosotros'
+        with col2:
+            if st.button("Mi Perfil", use_container_width=True):
+                st.session_state.current_page = 'perfil'
                 st.rerun()
         
-        with col4:
+        with col3:
             if st.button("Vacantes", use_container_width=True):
                 st.session_state.current_page = 'vacantes'
                 st.rerun()
         
-        with col5:
+        with col4:
             if st.button("Cursos", use_container_width=True):
                 st.session_state.current_page = 'cursos'
                 st.rerun()
         
-        with col6:
-            if st.button("Testimonios", use_container_width=True):
-                st.session_state.current_page = 'testimonios'
-                st.rerun()
-        
-        with col7:
-            if st.button("Aviso de Privacidad", use_container_width=True):
-                st.session_state.current_page = 'privacidad'
-                st.rerun()
-        
-        with col8:
+        with col5:
             if st.button("Salir", use_container_width=True):
                 st.session_state.logged_in = False
                 st.session_state.user_id = None
@@ -927,6 +983,11 @@ def show_header():
                 st.session_state.current_page = 'inicio'
                 st.rerun()
     else:
+        with col2:
+            if st.button("Inicio", use_container_width=True):
+                st.session_state.current_page = 'inicio'
+                st.rerun()
+        
         with col3:
             if st.button("Nuestra Historia", use_container_width=True):
                 st.session_state.current_page = 'nosotros'
@@ -938,11 +999,6 @@ def show_header():
                 st.rerun()
         
         with col5:
-            if st.button("Testimonios", use_container_width=True):
-                st.session_state.current_page = 'testimonios'
-                st.rerun()
-        
-        with col6:
             if st.button("Aviso de Privacidad", use_container_width=True):
                 st.session_state.current_page = 'privacidad'
                 st.rerun()
@@ -1096,52 +1152,8 @@ def show_home():
 
 # --- PÁGINA DE VACANTES ---
 def show_vacantes_page():
-    st.markdown("""
-    <div class='section-header'>
-        <h2>💼 Vacantes Disponibles</h2>
-        <p>Explora todas las oportunidades laborales activas</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Filtros
-    col1, col2 = st.columns(2)
-    with col1:
-        empresas = list(set([v.get('empresa', '') for v in VACANTES]))
-        empresa_filter = st.selectbox("🏢 Filtrar por empresa", ["Todas"] + empresas)
-    
-    with col2:
-        todas_skills = set()
-        for v in VACANTES:
-            todas_skills.update(v.get('requisitos_tecnicos', []))
-        skill_filter = st.selectbox("🛠️ Filtrar por habilidad", ["Todas"] + sorted(list(todas_skills)))
-    
-    st.markdown("---")
-    
-    for vacante in VACANTES:
-        # Aplicar filtros
-        if empresa_filter != "Todas" and vacante.get('empresa') != empresa_filter:
-            continue
-        if skill_filter != "Todas" and skill_filter not in vacante.get('requisitos_tecnicos', []):
-            continue
-        
-        tags_tec = " ".join([f"<span class='vacancy-tag'>{tag}</span>" for tag in vacante.get('requisitos_tecnicos', [])])
-        tags_soft = " ".join([f"<span class='skill-match'>{tag}</span>" for tag in vacante.get('requisitos_blandos', [])])
-        
-        st.markdown(f"""
-        <div class='vacancy-card'>
-            <div class='vacancy-title'>{vacante.get('titulo', 'Vacante')}</div>
-            <div class='vacancy-company'>🏢 {vacante.get('empresa', 'Empresa')}</div>
-            <div class='vacancy-desc'>{vacante.get('descripcion', '')}</div>
-            <div style='margin-top: 1rem;'>
-                <strong style='color: #1f2937;'>Requisitos Técnicos:</strong><br>
-                {tags_tec}
-            </div>
-            <div style='margin-top: 0.8rem;'>
-                <strong style='color: #1f2937;'>Habilidades Blandas:</strong><br>
-                {tags_soft}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    # La página de vacantes ahora solo muestra el análisis inteligente
+    pass
 
 # --- PÁGINA DE CURSOS ---
 def show_cursos_page():
@@ -1152,118 +1164,59 @@ def show_cursos_page():
     </div>
     """, unsafe_allow_html=True)
     
-    # Mostrar cursos en grid
+    # Mostrar cursos en grid con expanders
     cols = st.columns(3)
     
     for idx, curso in enumerate(CURSOS):
         with cols[idx % 3]:
             icon = "💻" if curso.get('habilidad') in ['Python', 'SQL', 'Excel'] else "📖"
-            st.markdown(f"""
-            <div class='course-card'>
-                <div class='course-icon'>{icon}</div>
-                <div class='course-title'>{curso.get('titulo_curso', 'Curso')}</div>
-                <div class='course-provider'>🎓 {curso.get('proveedor', 'Proveedor')}</div>
-                <div class='course-skill'>{curso.get('habilidad', 'Habilidad')}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            nivel = curso.get('nivel', 'N/A')
+            nivel_color = "#10b981" if nivel == "Principiante" else "#f59e0b" if nivel == "Intermedio" else "#ef4444"
+            
+            with st.expander(f"{icon} {curso.get('titulo_curso', 'Curso')}"):
+                st.markdown(f"""
+                <div style='padding: 0.5rem 0;'>
+                    <p style='color: #60a5fa; font-weight: 600; margin-bottom: 0.5rem;'>🎓 {curso.get('proveedor', 'Proveedor')}</p>
+                    <p style='color: #e2e8f0; line-height: 1.6; margin-bottom: 1rem;'>{curso.get('descripcion', 'Sin descripción disponible.')}</p>
+                    <div style='display: flex; gap: 1rem; flex-wrap: wrap;'>
+                        <span style='background: #1e293b; color: #cbd5e1; padding: 0.3rem 0.8rem; border-radius: 6px; font-size: 0.85rem;'>⏱️ {curso.get('duracion', 'N/A')}</span>
+                        <span style='background: {nivel_color}; color: white; padding: 0.3rem 0.8rem; border-radius: 6px; font-size: 0.85rem;'>📊 {nivel}</span>
+                        <span style='background: #065f46; color: white; padding: 0.3rem 0.8rem; border-radius: 6px; font-size: 0.85rem;'>🎯 {curso.get('habilidad', 'Habilidad')}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
 # --- PÁGINA DE AVISO DE PRIVACIDAD ---
 def show_privacidad_page():
+    # Header
     st.markdown("""
-    <div style='max-width: 900px; margin: 0 auto;'>
-        <!-- Contenedor único estilo corporativo -->
-        <div style='background: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-                    overflow: hidden; margin-top: 1rem;'>
-            
-            <!-- Header -->
-            <div style='background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); 
-                        padding: 1.5rem 2rem; text-align: center;'>
-                <h1 style='color: #ffffff; font-size: 1.5rem; font-weight: 600; margin: 0;'>
-                    AVISO DE PRIVACIDAD
-                </h1>
-                <p style='color: rgba(255,255,255,0.8); font-size: 0.85rem; margin: 0.5rem 0 0 0;'>
-                    CogniLink UNRC | Última actualización: 28 de noviembre de 2025
-                </p>
+    <div style='max-width: 850px; margin: 2rem auto; padding: 0 1rem;'>
+        <div style='background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); overflow: hidden; border: 1px solid #334155;'>
+            <div style='background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 2rem; text-align: center;'>
+                <h1 style='color: #ffffff; font-size: 1.8rem; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 1px;'>Aviso de Privacidad</h1>
+                <p style='color: rgba(255,255,255,0.9); font-size: 0.9rem; margin: 0.75rem 0 0 0;'>CogniLink UNRC | Última actualización: 28 de noviembre de 2025</p>
             </div>
-            
-            <!-- Contenido -->
-            <div style='padding: 2rem; color: #333333; font-size: 0.9rem; line-height: 1.7;'>
-                
-                <p style='margin-bottom: 1.5rem;'>
-                    <strong>CogniLink UNRC</strong>, con domicilio en Calle Soledad San Bernabé, UNRC, 
-                    Universidad Nacional Rosario Castellanos, es responsable del tratamiento de sus datos 
-                    personales de conformidad con la normativa vigente en materia de protección de datos 
-                    y los estándares ISO/IEC 27001.
-                </p>
-                
-                <p style='margin-bottom: 1rem;'><strong>Datos que recopilamos:</strong></p>
-                <p style='margin-bottom: 1.5rem; padding-left: 1rem;'>
-                    Nombre, identificador de egresado, año de egreso, competencias técnicas y blandas, 
-                    experiencia laboral, resumen curricular y credenciales de acceso protegidas mediante 
-                    cifrado SHA-256.
-                </p>
-                
-                <p style='margin-bottom: 1rem;'><strong>Finalidades del tratamiento:</strong></p>
-                <p style='margin-bottom: 1.5rem; padding-left: 1rem;'>
-                    Sus datos serán utilizados para: (i) realizar el matching inteligente entre su perfil 
-                    y vacantes laborales mediante algoritmos de NLP; (ii) recomendar cursos de capacitación 
-                    personalizados; (iii) facilitar la vinculación con empresas; (iv) enviar comunicaciones 
-                    sobre oportunidades relevantes; y (v) mejorar nuestros servicios.
-                </p>
-                
-                <p style='margin-bottom: 1rem;'><strong>Transferencia de datos:</strong></p>
-                <p style='margin-bottom: 1.5rem; padding-left: 1rem;'>
-                    Sus datos podrán compartirse con empresas registradas en la plataforma para fines de 
-                    reclutamiento, proveedores de capacitación asociados, y autoridades cuando sea legalmente 
-                    requerido. No vendemos ni comercializamos sus datos personales.
-                </p>
-                
-                <p style='margin-bottom: 1rem;'><strong>Derechos ARCO:</strong></p>
-                <p style='margin-bottom: 1.5rem; padding-left: 1rem;'>
-                    Usted tiene derecho a Acceder, Rectificar, Cancelar u Oponerse al tratamiento de sus 
-                    datos personales. Para ejercer estos derechos, envíe su solicitud a 
-                    <strong>contacto@cognilink.unrc.edu.ar</strong> indicando su nombre completo y el 
-                    derecho que desea ejercer.
-                </p>
-                
-                <p style='margin-bottom: 1rem;'><strong>Medidas de seguridad:</strong></p>
-                <p style='margin-bottom: 1.5rem; padding-left: 1rem;'>
-                    Implementamos medidas técnicas y organizativas alineadas con ISO/IEC 27001, incluyendo 
-                    cifrado de contraseñas, control de acceso, protección contra código malicioso y 
-                    transmisión segura mediante TLS.
-                </p>
-                
-                <p style='margin-bottom: 1rem;'><strong>Cookies:</strong></p>
-                <p style='margin-bottom: 1.5rem; padding-left: 1rem;'>
-                    Utilizamos cookies de sesión para mantener su acceso seguro. Estas se eliminan 
-                    automáticamente al cerrar el navegador.
-                </p>
-                
-                <p style='margin-bottom: 1rem;'><strong>Modificaciones:</strong></p>
-                <p style='margin-bottom: 1.5rem; padding-left: 1rem;'>
-                    Nos reservamos el derecho de modificar este aviso. Los cambios serán notificados 
-                    a través de la plataforma.
-                </p>
-                
-                <!-- Línea divisoria -->
-                <hr style='border: none; border-top: 1px solid #e0e0e0; margin: 1.5rem 0;'>
-                
-                <p style='font-size: 0.85rem; color: #666666; text-align: center; margin-bottom: 0;'>
-                    Al utilizar CogniLink UNRC, usted acepta los términos de este Aviso de Privacidad.<br>
-                    <strong>Contacto:</strong> contacto@cognilink.unrc.edu.ar | Tel: +54 358 467-6200
-                </p>
-                
+            <div style='padding: 2rem; color: #e2e8f0; font-size: 0.95rem; line-height: 1.8;'>
+                <p style='margin-bottom: 0.75rem; color: #60a5fa; font-weight: 600;'>Datos que recopilamos:</p>
+                <p style='margin-bottom: 1.5rem; padding-left: 1rem; color: #cbd5e1; border-left: 2px solid #3b82f6;'>Nombre, identificador de egresado, año de egreso, competencias técnicas y blandas, experiencia laboral, resumen curricular y credenciales de acceso protegidas mediante cifrado SHA-256.</p>
+                <p style='margin-bottom: 0.75rem; color: #60a5fa; font-weight: 600;'>Finalidades del tratamiento:</p>
+                <p style='margin-bottom: 1.5rem; padding-left: 1rem; color: #cbd5e1; border-left: 2px solid #3b82f6;'>Sus datos serán utilizados para: (i) realizar el matching inteligente entre su perfil y vacantes laborales mediante algoritmos de NLP; (ii) recomendar cursos de capacitación personalizados; (iii) facilitar la vinculación con empresas; (iv) enviar comunicaciones sobre oportunidades relevantes; y (v) mejorar nuestros servicios.</p>
+                <p style='margin-bottom: 0.75rem; color: #60a5fa; font-weight: 600;'>Transferencia de datos:</p>
+                <p style='margin-bottom: 1.5rem; padding-left: 1rem; color: #cbd5e1; border-left: 2px solid #3b82f6;'>Sus datos podrán compartirse con empresas registradas en la plataforma para fines de reclutamiento, proveedores de capacitación asociados, y autoridades cuando sea legalmente requerido. No vendemos ni comercializamos sus datos personales.</p>
+                <p style='margin-bottom: 0.75rem; color: #60a5fa; font-weight: 600;'>Derechos ARCO:</p>
+                <p style='margin-bottom: 1.5rem; padding-left: 1rem; color: #cbd5e1; border-left: 2px solid #3b82f6;'>Usted tiene derecho a Acceder, Rectificar, Cancelar u Oponerse al tratamiento de sus datos personales. Para ejercer estos derechos, envíe su solicitud a <strong style='color: #60a5fa;'>contacto@cognilink.unrc.edu.ar</strong> indicando su nombre completo y el derecho que desea ejercer.</p>
+                <p style='margin-bottom: 0.75rem; color: #60a5fa; font-weight: 600;'>Medidas de seguridad:</p>
+                <p style='margin-bottom: 1.5rem; padding-left: 1rem; color: #cbd5e1; border-left: 2px solid #3b82f6;'>Implementamos medidas técnicas y organizativas alineadas con ISO/IEC 27001, incluyendo cifrado de contraseñas, control de acceso, protección contra código malicioso y transmisión segura mediante TLS.</p>
+                <p style='margin-bottom: 0.75rem; color: #60a5fa; font-weight: 600;'>Cookies:</p>
+                <p style='margin-bottom: 1.5rem; padding-left: 1rem; color: #cbd5e1; border-left: 2px solid #3b82f6;'>Utilizamos cookies de sesión para mantener su acceso seguro. Estas se eliminan automáticamente al cerrar el navegador.</p>
+                <p style='margin-bottom: 0.75rem; color: #60a5fa; font-weight: 600;'>Modificaciones:</p>
+                <p style='margin-bottom: 1.5rem; padding-left: 1rem; color: #cbd5e1; border-left: 2px solid #3b82f6;'>Nos reservamos el derecho de modificar este aviso. Los cambios serán notificados a través de la plataforma.</p>
+                <hr style='border: none; border-top: 1px solid #334155; margin: 1.5rem 0;'>
+                <p style='font-size: 0.9rem; color: #94a3b8; text-align: center; margin-bottom: 0;'>Al utilizar CogniLink UNRC, usted acepta los términos de este Aviso de Privacidad.<br><strong style='color: #e2e8f0;'>Contacto:</strong> contacto@cognilink.unrc.edu.ar | Tel: +54 358 467-6200</p>
             </div>
-            
-            <!-- Footer del documento -->
-            <div style='background: #f5f5f5; padding: 1rem 2rem; text-align: center; 
-                        border-top: 1px solid #e0e0e0;'>
-                <p style='color: #888888; font-size: 0.75rem; margin: 0;'>
-                    © 2025 CogniLink UNRC - Universidad Nacional Rosario Castellanos | 
-                    Documento conforme a ISO/IEC 27001:2022
-                </p>
+            <div style='background: #0f172a; padding: 1.25rem 2rem; text-align: center; border-top: 1px solid #334155;'>
+                <p style='color: #64748b; font-size: 0.8rem; margin: 0;'>© 2025 CogniLink UNRC - Universidad Nacional Rosario Castellanos<br><span style='color: #22c55e;'>✓</span> Documento conforme a ISO/IEC 27001:2022</p>
             </div>
-            
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1525,123 +1478,286 @@ def show_login():
 def show_profile():
     user = st.session_state.user_data
     
+    # Banner superior con gradiente
+    st.markdown("""
+    <div style='height: 100px; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%); 
+                border-radius: 20px 20px 0 0; margin-bottom: -50px;'></div>
+    """, unsafe_allow_html=True)
+    
+    # Avatar y nombre
     st.markdown(f"""
-    <div class='profile-card'>
-        <h2>👤 {user['Nombre']}</h2>
-        <div class='profile-info'>
-            <div class='profile-info-item'><b>ID:</b> {user['ID_Egresado']}</div>
-            <div class='profile-info-item'><b>Egreso:</b> {user['Anio_Egreso']}</div>
-            <div class='profile-info-item'><b>Experiencia:</b> {user['Experiencia_Anios']} años</div>
+    <div style='background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); 
+                border-radius: 0 0 20px 20px; padding: 1rem 2rem 2rem 2rem;
+                box-shadow: 0 25px 50px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); margin-bottom: 2rem;'>
+        <div style='display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;'>
+            <div style='width: 100px; height: 100px; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); 
+                        border-radius: 50%; display: flex; align-items: center; justify-content: center;
+                        font-size: 2.5rem; color: white; font-weight: 700; 
+                        box-shadow: 0 10px 30px rgba(59,130,246,0.5); border: 4px solid #0f172a;'>
+                {user['Nombre'][0]}
+            </div>
+            <div style='flex: 1;'>
+                <h1 style='color: #ffffff; font-size: 1.8rem; font-weight: 700; margin: 0 0 0.3rem 0;'>{user['Nombre']}</h1>
+                <p style='color: #60a5fa; font-size: 1.1rem; font-weight: 600; margin: 0 0 1rem 0;'>{user['Rol_Deseado']}</p>
+                <div style='display: flex; gap: 2rem; flex-wrap: wrap;'>
+                    <div style='text-align: center;'>
+                        <p style='color: #60a5fa; font-size: 1.3rem; margin: 0;'>🎓</p>
+                        <p style='color: #94a3b8; font-size: 0.7rem; margin: 0; text-transform: uppercase;'>Egreso</p>
+                        <p style='color: #ffffff; font-size: 1rem; font-weight: 600; margin: 0;'>{user['Anio_Egreso']}</p>
+                    </div>
+                    <div style='text-align: center;'>
+                        <p style='color: #10b981; font-size: 1.3rem; margin: 0;'>💼</p>
+                        <p style='color: #94a3b8; font-size: 0.7rem; margin: 0; text-transform: uppercase;'>Experiencia</p>
+                        <p style='color: #ffffff; font-size: 1rem; font-weight: 600; margin: 0;'>{user['Experiencia_Anios']} años</p>
+                    </div>
+                    <div style='text-align: center;'>
+                        <p style='color: #8b5cf6; font-size: 1.3rem; margin: 0;'>🆔</p>
+                        <p style='color: #94a3b8; font-size: 0.7rem; margin: 0; text-transform: uppercase;'>ID</p>
+                        <p style='color: #ffffff; font-size: 1rem; font-weight: 600; margin: 0;'>{user['ID_Egresado']}</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
+    # Sección de Habilidades en dos columnas
+    st.markdown("<h2 style='color: #ffffff; font-size: 1.4rem; font-weight: 700; margin: 2rem 0 1rem 0; display: flex; align-items: center; gap: 0.5rem;'>🎯 Mis Competencias</h2>", unsafe_allow_html=True)
     
-    with col1:
-        st.markdown("<div class='section-title'>🎯 Rol Deseado</div>", unsafe_allow_html=True)
-        st.markdown(f"**{user['Rol_Deseado']}**")
-        
-        st.markdown("<div class='section-title'>🛠️ Hard Skills</div>", unsafe_allow_html=True)
+    col_skills1, col_skills2 = st.columns(2)
+    
+    with col_skills1:
+        # Hard Skills
         hard_skills = [s.strip() for s in str(user['Hard_Skills']).split(',')]
-        skills_html = " ".join([f"<span class='skill-match'>{s}</span>" for s in hard_skills])
-        st.markdown(skills_html, unsafe_allow_html=True)
+        skills_html = "".join([f"<span style='background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem; font-weight: 500; display: inline-block; margin: 0.25rem; box-shadow: 0 2px 8px rgba(16,185,129,0.3);'>{s}</span>" for s in hard_skills])
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 16px; 
+                    padding: 1.5rem; border: 1px solid #475569; height: 100%;'>
+            <div style='display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; padding-bottom: 0.8rem; border-bottom: 2px solid #10b981;'>
+                <span style='font-size: 1.3rem;'>🛠️</span>
+                <h3 style='color: #10b981; font-size: 1.1rem; font-weight: 600; margin: 0;'>Habilidades Técnicas</h3>
+                <span style='background: #10b981; color: white; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: auto;'>{len(hard_skills)}</span>
+            </div>
+            <div style='display: flex; flex-wrap: wrap; gap: 0.5rem;'>
+                {skills_html}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
-    with col2:
-        st.markdown("<div class='section-title'>📄 Resumen Profesional</div>", unsafe_allow_html=True)
-        st.write(user['Resumen_CV'])
-        
-        st.markdown("<div class='section-title'>💬 Soft Skills</div>", unsafe_allow_html=True)
+    with col_skills2:
+        # Soft Skills
         soft_skills = [s.strip() for s in str(user['Soft_Skills']).split(',')]
-        skills_html = " ".join([f"<span class='skill-match'>{s}</span>" for s in soft_skills])
-        st.markdown(skills_html, unsafe_allow_html=True)
+        soft_skills_html = "".join([f"<span style='background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%); color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem; font-weight: 500; display: inline-block; margin: 0.25rem; box-shadow: 0 2px 8px rgba(139,92,246,0.3);'>{s}</span>" for s in soft_skills])
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 16px; 
+                    padding: 1.5rem; border: 1px solid #475569; height: 100%;'>
+            <div style='display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; padding-bottom: 0.8rem; border-bottom: 2px solid #8b5cf6;'>
+                <span style='font-size: 1.3rem;'>💬</span>
+                <h3 style='color: #8b5cf6; font-size: 1.1rem; font-weight: 600; margin: 0;'>Habilidades Blandas</h3>
+                <span style='background: #8b5cf6; color: white; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: auto;'>{len(soft_skills)}</span>
+            </div>
+            <div style='display: flex; flex-wrap: wrap; gap: 0.5rem;'>
+                {soft_skills_html}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Sección del CV completo
+    st.markdown("<h2 style='color: #ffffff; font-size: 1.4rem; font-weight: 700; margin: 2rem 0 1rem 0; display: flex; align-items: center; gap: 0.5rem;'>📄 Mi Trayectoria Profesional</h2>", unsafe_allow_html=True)
+    
+    cv_completo = str(user['Resumen_CV'])
+    
+    # Formatear el CV para mejor visualización profesional
+    cv_formateado = cv_completo.replace("CURRÍCULUM VITAE -", "<div style='text-align: center; margin-bottom: 1.5rem;'><h3 style='color: #60a5fa; margin: 0; font-size: 1.2rem; font-weight: 700;'>")
+    cv_formateado = cv_formateado.replace("| DATOS PERSONALES:", "</h3></div><div style='display: none;'>")
+    cv_formateado = cv_formateado.replace("| PERFIL PROFESIONAL:", "</div><div style='background: rgba(16,185,129,0.1); border-left: 4px solid #10b981; padding: 1rem 1.5rem; border-radius: 0 12px 12px 0; margin-bottom: 1.5rem;'><strong style='color: #10b981; font-size: 1rem; display: block; margin-bottom: 0.5rem;'>👤 PERFIL PROFESIONAL</strong><span style='color: #e2e8f0; line-height: 1.7;'>")
+    cv_formateado = cv_formateado.replace("| EXPERIENCIA LABORAL:", "</span></div><div style='background: rgba(245,158,11,0.1); border-left: 4px solid #f59e0b; padding: 1rem 1.5rem; border-radius: 0 12px 12px 0; margin-bottom: 1.5rem;'><strong style='color: #f59e0b; font-size: 1rem; display: block; margin-bottom: 0.5rem;'>💼 EXPERIENCIA LABORAL</strong><span style='color: #e2e8f0; line-height: 1.7;'>")
+    cv_formateado = cv_formateado.replace("| PROYECTOS:", "</span></div><div style='background: rgba(139,92,246,0.1); border-left: 4px solid #8b5cf6; padding: 1rem 1.5rem; border-radius: 0 12px 12px 0; margin-bottom: 1.5rem;'><strong style='color: #8b5cf6; font-size: 1rem; display: block; margin-bottom: 0.5rem;'>🚀 PROYECTOS DESTACADOS</strong><span style='color: #e2e8f0; line-height: 1.7;'>")
+    cv_formateado = cv_formateado.replace("| FORMACIÓN:", "</span></div><div style='background: rgba(236,72,153,0.1); border-left: 4px solid #ec4899; padding: 1rem 1.5rem; border-radius: 0 12px 12px 0; margin-bottom: 1.5rem;'><strong style='color: #ec4899; font-size: 1rem; display: block; margin-bottom: 0.5rem;'>🎓 FORMACIÓN ACADÉMICA</strong><span style='color: #e2e8f0; line-height: 1.7;'>")
+    cv_formateado = cv_formateado.replace("| HABILIDADES TÉCNICAS:", "</span></div><div style='display: none;'>")
+    cv_formateado = cv_formateado.replace("| HABILIDADES BLANDAS:", "</div><div style='display: none;'>")
+    cv_formateado = cv_formateado.replace("| PUBLICACIONES:", "</span></div><div style='background: rgba(59,130,246,0.1); border-left: 4px solid #3b82f6; padding: 1rem 1.5rem; border-radius: 0 12px 12px 0; margin-bottom: 1.5rem;'><strong style='color: #3b82f6; font-size: 1rem; display: block; margin-bottom: 0.5rem;'>📚 PUBLICACIONES</strong><span style='color: #e2e8f0; line-height: 1.7;'>")
+    cv_formateado = cv_formateado + "</span></div>"
+    
+    st.markdown(f"""
+    <div style='background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 16px; 
+                padding: 2rem; border: 1px solid #475569;'>
+        <div style='color: #e2e8f0; font-size: 0.95rem;'>{cv_formateado}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 def show_analysis():
-    st.markdown("---")
-    st.markdown("<div class='section-title'>🔍 Análisis Inteligente de Vacantes</div>", unsafe_allow_html=True)
+    # Header de la sección de análisis
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 16px; 
+                padding: 2rem; margin: 2rem 0; border: 1px solid rgba(255,255,255,0.1);
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);'>
+        <div style='text-align: center;'>
+            <h2 style='color: #ffffff; font-size: 1.8rem; font-weight: 700; margin: 0;'>
+                🔍 Análisis Inteligente de Vacantes
+            </h2>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    user = st.session_state.user_data
-    cv_text = str(user['Resumen_CV']) + " " + str(user['Hard_Skills']) + " " + str(user['Soft_Skills'])
+    # Campo de texto para pegar CV
+    cv_text = st.text_area(
+        "📄 Pega aquí tu CV o descripción profesional:",
+        height=200,
+        placeholder="Pega aquí el contenido de tu CV, incluyendo tu experiencia laboral, habilidades técnicas, soft skills, certificaciones, proyectos, etc.\n\nEntre más detallada sea la información, mejor será el análisis de compatibilidad con las vacantes disponibles.",
+        help="El sistema analizará tu perfil y lo comparará con las vacantes disponibles para mostrarte el porcentaje de compatibilidad."
+    )
     
-    col1, col2, col3 = st.columns([2, 1, 2])
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("✨ Analizar Compatibilidad", use_container_width=True, type="primary"):
+        analizar_btn = st.button("✨ Analizar Compatibilidad", use_container_width=True, type="primary")
+    
+    if analizar_btn:
+        if cv_text.strip():
             with st.spinner("🔍 Analizando compatibilidad con vacantes..."):
                 resultados = perform_matching(cv_text)
             
             if resultados:
                 st.session_state.analysis_results = resultados
+                st.session_state.cv_analizado = True
+        else:
+            st.warning("⚠️ Por favor, pega el contenido de tu CV para realizar el análisis.")
     
-    if 'analysis_results' in st.session_state:
+    if 'analysis_results' in st.session_state and st.session_state.get('cv_analizado'):
         resultados = st.session_state.analysis_results
-        st.markdown("<div class='section-title'>🎯 Resultados del Análisis</div>", unsafe_allow_html=True)
         
-        # Mostrar resumen
+        # Resumen de resultados en tarjetas
+        st.markdown("<br>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns(3)
+        
+        mejor_match = max([r['puntaje_match'] for r in resultados]) if resultados else 0
+        muy_compatibles = len([r for r in resultados if r['puntaje_match'] > 70])
+        
         with col1:
-            st.metric("📊 Total de Vacantes", len(resultados), label_visibility="collapsed")
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 12px; 
+                        padding: 1.5rem; text-align: center; border: 1px solid #475569;'>
+                <p style='color: #60a5fa; font-size: 2.5rem; font-weight: 700; margin: 0;'>{len(resultados)}</p>
+                <p style='color: #94a3b8; font-size: 0.9rem; margin: 0.5rem 0 0 0;'>Vacantes Analizadas</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col2:
-            mejor_match = max([r['puntaje_match'] for r in resultados]) if resultados else 0
-            st.metric("🏆 Mejor Compatibilidad", f"{mejor_match}%", label_visibility="collapsed")
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 12px; 
+                        padding: 1.5rem; text-align: center; border: 1px solid #475569;'>
+                <p style='color: #10b981; font-size: 2.5rem; font-weight: 700; margin: 0;'>{mejor_match}%</p>
+                <p style='color: #94a3b8; font-size: 0.9rem; margin: 0.5rem 0 0 0;'>Mejor Compatibilidad</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col3:
-            muy_compatibles = len([r for r in resultados if r['puntaje_match'] > 70])
-            st.metric("✨ Muy Compatibles", muy_compatibles, label_visibility="collapsed")
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 12px; 
+                        padding: 1.5rem; text-align: center; border: 1px solid #475569;'>
+                <p style='color: #f59e0b; font-size: 2.5rem; font-weight: 700; margin: 0;'>{muy_compatibles}</p>
+                <p style='color: #94a3b8; font-size: 0.9rem; margin: 0.5rem 0 0 0;'>Alta Compatibilidad (+70%)</p>
+            </div>
+            """, unsafe_allow_html=True)
         
-        st.markdown("---")
+        st.markdown("<br>", unsafe_allow_html=True)
         
+        # Listado de vacantes
         for i, result in enumerate(resultados, 1):
-            col1, col2 = st.columns([3, 1])
+            # Calcular porcentaje sobre 100 basado en requisitos
+            total_requisitos = len(result['habilidades_cumplidas']) + len(result['habilidades_faltantes'])
+            cumplidos = len(result['habilidades_cumplidas'])
+            if total_requisitos > 0:
+                match_pct = round((cumplidos / total_requisitos) * 100, 1)
+            else:
+                match_pct = 0
             
-            with col1:
-                st.markdown(f"<div style='color: #1f2937; font-weight: 700; font-size: 1.15rem;'>#### {i}. {result['vacante'].get('titulo', 'Vacante')}</div>", unsafe_allow_html=True)
-                st.markdown(f"<div style='color: #667eea; font-weight: 600; margin: 0.5rem 0;'>🏢 {result['vacante'].get('empresa', 'Empresa')}</div>", unsafe_allow_html=True)
+            # Color según compatibilidad
+            if match_pct >= 70:
+                match_color = "#10b981"
+                match_label = "Alta"
+            elif match_pct >= 50:
+                match_color = "#f59e0b"
+                match_label = "Media"
+            else:
+                match_color = "#ef4444"
+                match_label = "Baja"
             
-            with col2:
-                match_pct = result['puntaje_match']
-                if match_pct > 70:
-                    st.markdown(f"<div class='match-score excellent'>{match_pct}%</div>", unsafe_allow_html=True)
-                elif match_pct > 50:
-                    st.markdown(f"<div class='match-score good'>{match_pct}%</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<div class='match-score low'>{match_pct}%</div>", unsafe_allow_html=True)
-            
-            st.markdown(f"<div style='color: #4b5563; font-style: italic; margin: 0.8rem 0;'>{result['vacante'].get('descripcion', '')}</div>", unsafe_allow_html=True)
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("<div style='color: #1f2937; font-weight: 600; margin-bottom: 0.5rem;'>✅ Habilidades que tienes:</div>", unsafe_allow_html=True)
-                if result['habilidades_cumplidas']:
-                    skills_html = " ".join([f"<span class='skill-match'>{s}</span>" for s in result['habilidades_cumplidas']])
-                    st.markdown(skills_html, unsafe_allow_html=True)
-                else:
-                    st.markdown("<span class='skill-neutral'>Ninguna de las habilidades requeridas</span>", unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown("<div style='color: #1f2937; font-weight: 600; margin-bottom: 0.5rem;'>📚 Habilidades a desarrollar:</div>", unsafe_allow_html=True)
-                if result['habilidades_faltantes']:
-                    skills_html = " ".join([f"<span class='skill-missing'>{s}</span>" for s in result['habilidades_faltantes']])
-                    st.markdown(skills_html, unsafe_allow_html=True)
-                else:
-                    st.markdown("<span class='skill-match'>✓ ¡Cumples todos los requisitos!</span>", unsafe_allow_html=True)
-            
-            if result['cursos_recomendados']:
-                st.markdown("<div style='color: #1f2937; font-weight: 600; margin: 1rem 0 0.5rem 0;'>🎓 Cursos recomendados:</div>", unsafe_allow_html=True)
-                cols = st.columns(len(result['cursos_recomendados'][:3]))
-                for idx, curso in enumerate(result['cursos_recomendados'][:3]):
-                    with cols[idx]:
-                        st.info(f"📖 **{curso.get('titulo_curso', 'Curso')}**\n\n{curso.get('proveedor', 'Proveedor')}")
-            
-            st.markdown("---")
+            # Tarjeta de vacante usando componentes de Streamlit
+            with st.container():
+                st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem; border: 1px solid #475569; border-left: 4px solid {match_color};'>
+                    <div style='display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;'>
+                        <div style='flex: 1;'>
+                            <h3 style='color: #ffffff; font-size: 1.25rem; font-weight: 700; margin: 0 0 0.3rem 0;'>{result['vacante'].get('titulo', 'Vacante')}</h3>
+                            <p style='color: #60a5fa; font-weight: 600; font-size: 1rem; margin: 0;'>🏢 {result['vacante'].get('empresa', 'Empresa')}</p>
+                        </div>
+                        <div style='background: rgba(0,0,0,0.3); border: 2px solid {match_color}; border-radius: 12px; padding: 0.8rem 1.2rem; text-align: center; min-width: 130px;'>
+                            <p style='color: {match_color}; font-size: 2rem; font-weight: 700; margin: 0; line-height: 1;'>{match_pct}%</p>
+                            <p style='color: {match_color}; font-size: 0.75rem; margin: 0.2rem 0 0 0; text-transform: uppercase;'>Compatibilidad {match_label}</p>
+                            <div style='width: 100%; background: #1e293b; border-radius: 10px; height: 6px; margin: 0.5rem 0;'>
+                                <div style='width: {match_pct}%; background: {match_color}; height: 100%; border-radius: 10px;'></div>
+                            </div>
+                            <p style='color: #94a3b8; font-size: 0.75rem; margin: 0;'>{cumplidos} de {total_requisitos} requisitos</p>
+                        </div>
+                    </div>
+                    <p style='color: #cbd5e1; font-size: 0.95rem; line-height: 1.6; margin: 1rem 0; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 8px;'>{result['vacante'].get('descripcion', '')}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Habilidades en columnas de Streamlit
+                col_hab1, col_hab2 = st.columns(2)
+                
+                with col_hab1:
+                    st.markdown(f"<p style='color: #10b981; font-weight: 600; font-size: 0.9rem; margin: 0 0 0.5rem 0;'>✅ Requisitos que cumples ({cumplidos})</p>", unsafe_allow_html=True)
+                    if result['habilidades_cumplidas']:
+                        hab_html = ""
+                        for s in result['habilidades_cumplidas']:
+                            hab_html += f"<span style='background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.8rem; font-weight: 500; display: inline-block; margin: 0.15rem;'>{s}</span>"
+                        st.markdown(hab_html, unsafe_allow_html=True)
+                    else:
+                        st.markdown("<span style='color: #64748b; font-style: italic;'>Ninguna coincidente</span>", unsafe_allow_html=True)
+                
+                with col_hab2:
+                    st.markdown(f"<p style='color: #ef4444; font-weight: 600; font-size: 0.9rem; margin: 0 0 0.5rem 0;'>📚 Requisitos faltantes ({len(result['habilidades_faltantes'])})</p>", unsafe_allow_html=True)
+                    if result['habilidades_faltantes']:
+                        hab_html = ""
+                        for s in result['habilidades_faltantes']:
+                            hab_html += f"<span style='background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); color: white; padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.8rem; font-weight: 500; display: inline-block; margin: 0.15rem;'>{s}</span>"
+                        st.markdown(hab_html, unsafe_allow_html=True)
+                    else:
+                        st.markdown("<span style='color: #10b981; font-weight: 600;'>✓ Cumples todos los requisitos</span>", unsafe_allow_html=True)
+                
+                # Cursos recomendados
+                if result['cursos_recomendados']:
+                    with st.expander(f"🎓 Ver {len(result['cursos_recomendados'])} curso(s) recomendado(s)"):
+                        cols_cursos = st.columns(min(len(result['cursos_recomendados']), 3))
+                        for idx, curso in enumerate(result['cursos_recomendados'][:3]):
+                            with cols_cursos[idx]:
+                                st.markdown(f"""
+                                <div style='background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 10px; padding: 1rem; border: 1px solid #475569;'>
+                                    <p style='color: #60a5fa; font-weight: 600; font-size: 0.95rem; margin: 0 0 0.5rem 0;'>📖 {curso.get('titulo_curso', 'Curso')}</p>
+                                    <p style='color: #94a3b8; font-size: 0.85rem; margin: 0;'>🎓 {curso.get('proveedor', 'Proveedor')}</p>
+                                </div>
+                                """, unsafe_allow_html=True)
+                
+                st.markdown("<hr style='border: none; border-top: 1px solid #334155; margin: 1.5rem 0;'>", unsafe_allow_html=True)
 
 # --- FLUJO PRINCIPAL ---
 show_header()
 
 # Navegación por páginas
 if st.session_state.current_page == 'inicio':
-    show_home()
+    if st.session_state.logged_in:
+        show_profile()
+    else:
+        show_home()
+elif st.session_state.current_page == 'perfil':
+    show_profile()
 elif st.session_state.current_page == 'vacantes':
     show_vacantes_page()
+    if st.session_state.logged_in:
+        show_analysis()
 elif st.session_state.current_page == 'cursos':
     show_cursos_page()
 elif st.session_state.current_page == 'testimonios':
@@ -1655,9 +1771,7 @@ elif st.session_state.current_page == 'login':
         show_login()
     else:
         show_profile()
-        show_analysis()
 elif st.session_state.logged_in:
     show_profile()
-    show_analysis()
 else:
     show_home()

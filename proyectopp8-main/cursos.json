@@ -2,31 +2,49 @@
     {
         "titulo_curso": "Curso de Python Avanzado",
         "proveedor": "Coursera",
-        "habilidad": "Python"
+        "habilidad": "Python",
+        "descripcion": "Domina Python a nivel avanzado: estructuras de datos complejas, programación orientada a objetos, manejo de excepciones, decoradores y generadores. Aprende a crear aplicaciones robustas y eficientes para análisis de datos y automatización.",
+        "duracion": "8 semanas",
+        "nivel": "Avanzado"
     },
     {
         "titulo_curso": "Introducción a SQL para Ciencia de Datos",
         "proveedor": "Udemy",
-        "habilidad": "SQL"
+        "habilidad": "SQL",
+        "descripcion": "Aprende a consultar bases de datos relacionales desde cero. Domina SELECT, JOIN, GROUP BY, subconsultas y funciones de agregación. Ideal para analistas que necesitan extraer insights de grandes volúmenes de datos.",
+        "duracion": "6 semanas",
+        "nivel": "Principiante"
     },
     {
         "titulo_curso": "Dominando Excel para Análisis de Datos",
         "proveedor": "LinkedIn Learning",
-        "habilidad": "Excel"
+        "habilidad": "Excel",
+        "descripcion": "Conviértete en experto en Excel: tablas dinámicas, fórmulas avanzadas (BUSCARV, ÍNDICE, COINCIDIR), macros básicas y visualización de datos. Herramienta esencial para cualquier profesional de datos.",
+        "duracion": "4 semanas",
+        "nivel": "Intermedio"
     },
     {
         "titulo_curso": "Fundamentos de Estadística",
         "proveedor": "Platzi",
-        "habilidad": "Estadística"
+        "habilidad": "Estadística",
+        "descripcion": "Comprende los conceptos fundamentales: probabilidad, distribuciones, inferencia estadística, pruebas de hipótesis y regresión. Base esencial para machine learning y análisis predictivo.",
+        "duracion": "6 semanas",
+        "nivel": "Principiante"
     },
     {
         "titulo_curso": "Liderazgo y Gestión de Equipos",
         "proveedor": "EDX",
-        "habilidad": "Liderazgo"
+        "habilidad": "Liderazgo",
+        "descripcion": "Desarrolla habilidades de liderazgo efectivo: comunicación asertiva, motivación de equipos, resolución de conflictos, delegación y toma de decisiones. Prepárate para roles de gestión y dirección.",
+        "duracion": "5 semanas",
+        "nivel": "Intermedio"
     },
     {
         "titulo_curso": "Resolución Creativa de Problemas",
         "proveedor": "Skillshare",
-        "habilidad": "Resolución de problemas"
+        "habilidad": "Resolución de problemas",
+        "descripcion": "Aprende técnicas de pensamiento lateral, Design Thinking, análisis de causa raíz y metodologías ágiles para resolver problemas complejos. Desarrolla tu capacidad de innovación y pensamiento crítico.",
+        "duracion": "4 semanas",
+        "nivel": "Principiante"
     }
 ]
